@@ -43,6 +43,7 @@
 #include <QApplication>
 #include <signal.h>
 #include <QTimer>
+#include <SWI-Stream.h>
 
 /** singleton handling - process main engine
  */
@@ -67,15 +68,16 @@ SwiPrologEngine::~SwiPrologEngine() {
 
 /** check stream property
  */
-bool SwiPrologEngine::is_tty(const FlushOutputEvents *f) { Q_UNUSED(f)
- // qDebug() << CVP(Suser_input) << "tty" << (PL_ttymode(Suser_input) == PL_RAWTTY);
+bool SwiPrologEngine::is_tty(const FlushOutputEvents *f) {
+    Q_UNUSED(f)
+    // qDebug() << CVP(Suser_input) << "tty" << (PL_ttymode(Suser_input) == PL_RAWTTY);
     return PL_ttymode(Suser_input) == PL_RAWTTY;
 }
 
 /** background thread setup
  */
 void SwiPrologEngine::start(int argc, char **argv) {
-    this->argv = new char*[this->argc = argc];
+    this->argv = new char *[this->argc = argc];
     for (int a = 0; a < argc; ++a)
         strcpy(this->argv[a] = new char[strlen(argv[a]) + 1], argv[a]);
     QThread::start();
@@ -100,12 +102,13 @@ ssize_t SwiPrologEngine::_read_(void *handle, char *buf, size_t bufsize) {
  */
 ssize_t SwiPrologEngine::_read_(char *buf, size_t bufsize) {
 
-    if ( buffer.isEmpty() )
+    if (buffer.isEmpty())
         emit user_prompt(PL_thread_self(), is_tty(this));
 
-    for ( ; ; ) {
+    for (;;) {
 
-        {   QMutexLocker lk(&sync);
+        {
+            QMutexLocker lk(&sync);
 
             if (!spe) // terminated
                 return 0;
@@ -147,8 +150,7 @@ void SwiPrologEngine::serve_query(query p) {
             while (q.next_solution())
                 emit query_result(t, ++occurrences);
             emit query_complete(t, occurrences);
-        }
-        else {
+        } else {
             PlQuery q(A(n), "call", PlTermv(PlCompound(t.toUtf8())));
             //PlQuery q(A(n), "call", PlTermv(PlCompound(t.toStdWString().data())));
             int occurrences = 0;
@@ -156,8 +158,7 @@ void SwiPrologEngine::serve_query(query p) {
                 emit query_result(t, ++occurrences);
             emit query_complete(t, occurrences);
         }
-    }
-    catch(PlException ex) {
+    } catch (PlException ex) {
         qDebug() << t << CCP(ex);
         emit query_exception(n, CCP(ex));
     }
@@ -182,54 +183,54 @@ implement any of the other control operations   we  simply return -1 for
 all commands we may be requested to handle.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-int SwiPrologEngine::_control_(void *handle, int cmd, void *closure)
-{ Q_UNUSED(handle);
-  Q_UNUSED(cmd);
-  Q_UNUSED(closure);
-  return -1;
+int SwiPrologEngine::_control_(void *handle, int cmd, void *closure) {
+    Q_UNUSED(handle);
+    Q_UNUSED(cmd);
+    Q_UNUSED(closure);
+    return -1;
 }
 
 
-int SwiPrologEngine::halt_engine(int status, void*data)
-{ Q_UNUSED(data);
+int SwiPrologEngine::halt_engine(int status, void *data) {
+    Q_UNUSED(data);
 
-  qDebug() << "halt_engine" << status;
-  QCoreApplication::quit();
-  msleep(5000);
+    qDebug() << "halt_engine" << status;
+    QCoreApplication::quit();
+    msleep(5000);
 
-  return 0;
+    return 0;
 }
 
 
 static IOFUNCTIONS pq_functions;
 
 void SwiPrologEngine::run() {
-    pq_functions         = *Sinput->functions;
-    pq_functions.read    = _read_;
-    pq_functions.write	 = _write_;
- // pq_functions.close   = _close_; /* JW: might be needed.  See pl-ntmain.c */
+    pq_functions = *Sinput->functions;
+    pq_functions.read = _read_;
+    pq_functions.write = _write_;
+    // pq_functions.close   = _close_; /* JW: might be needed.  See pl-ntmain.c */
     pq_functions.control = _control_;
 
-    Sinput->functions  = &pq_functions;
+    Sinput->functions = &pq_functions;
     Soutput->functions = &pq_functions;
-    Serror->functions  = &pq_functions;
+    Serror->functions = &pq_functions;
 
-    Sinput->flags  |= SIO_ISATTY;
+    Sinput->flags |= SIO_ISATTY;
     Soutput->flags |= SIO_ISATTY;
-    Serror->flags  |= SIO_ISATTY;
+    Serror->flags |= SIO_ISATTY;
 
-    Sinput->encoding  = ENC_UTF8; /* is this correct? */
+    Sinput->encoding = ENC_UTF8; /* is this correct? */
     Soutput->encoding = ENC_UTF8;
-    Serror->encoding  = ENC_UTF8;
+    Serror->encoding = ENC_UTF8;
 
-    Sinput->flags  &= ~SIO_FILE;
+    Sinput->flags &= ~SIO_FILE;
     Soutput->flags &= ~SIO_FILE;
-    Serror->flags  &= ~SIO_FILE;
+    Serror->flags &= ~SIO_FILE;
 
-    PL_set_prolog_flag("console_menu", PL_BOOL|FF_READONLY, TRUE);
-    PL_set_prolog_flag("console_menu_version", PL_ATOM|FF_READONLY, "qt");
+    PL_set_prolog_flag("console_menu", PL_BOOL | FF_READONLY, TRUE);
+    PL_set_prolog_flag("console_menu_version", PL_ATOM | FF_READONLY, "qt");
     PL_set_prolog_flag("xpce_threaded", PL_BOOL, TRUE);
-    PL_set_prolog_flag("readline", PL_ATOM|FF_READONLY, "swipl_win");
+    PL_set_prolog_flag("readline", PL_ATOM | FF_READONLY, "swipl_win");
 
     // force usage of fixed ANSI ESC sequence for help console output
     PL_set_prolog_flag("help_pager", PL_BOOL, FALSE);
@@ -252,12 +253,13 @@ void SwiPrologEngine::run() {
     spe = 0;
     */
 
-    {   PlTerm color_term;
+    {
+        PlTerm color_term;
         if (PlCall("current_prolog_flag", PlTermv("color_term", color_term)) && color_term == "false")
             target->color_term = false;
     }
 
-    for ( ; ; ) {
+    for (;;) {
         int status = PL_toplevel() ? 0 : 1;
         qDebug() << "PL_halt" << status;
         PL_halt(status);
@@ -268,22 +270,23 @@ void SwiPrologEngine::run() {
  */
 void SwiPrologEngine::query_run(QString text) {
     QMutexLocker lk(&sync);
-    queries.append(query {false, "", text});
+    queries.append(query{false, "", text});
 }
 
 /** push a named query, thus unlocking the execution polling loop
  */
 void SwiPrologEngine::query_run(QString module, QString text) {
     QMutexLocker lk(&sync);
-    queries.append(query {false, module, text});
+    queries.append(query{false, module, text});
 }
 
 /** allows to run a delayed script from resource at startup
  */
 void SwiPrologEngine::script_run(QString name, QString text) {
-    queries.append(query {true, name, text});
+    queries.append(query{true, name, text});
     QTimer::singleShot(100, this, SLOT(awake()));
 }
+
 void SwiPrologEngine::awake() {
     Q_ASSERT(queries.count() == 1);
     query p = queries.takeFirst();
@@ -298,9 +301,7 @@ void SwiPrologEngine::awake() {
     gui and destroyed after the callback has finished. This is used only
     if the thread associated to the current tab is not running a query.
  */
-SwiPrologEngine::in_thread::in_thread()
-    : frame(0)
-{
+SwiPrologEngine::in_thread::in_thread() : frame(0) {
     PL_thread_attr_t attr;
 
     while (!spe)
@@ -312,10 +313,10 @@ SwiPrologEngine::in_thread::in_thread()
 
     memset(&attr, 0, sizeof(attr));
     attr.flags = PL_THREAD_NO_DEBUG;
-    attr.alias = (char*)"__gui";
+    attr.alias = (char *) "__gui";
 
     int id = PL_thread_attach_engine(&attr);
-    Q_ASSERT(id >= 0);			/* JW: Should throw exception */
+    Q_ASSERT(id >= 0);            /* JW: Should throw exception */
     frame = new PlFrame;
 }
 
@@ -329,8 +330,10 @@ SwiPrologEngine::in_thread::~in_thread() {
 bool SwiPrologEngine::in_thread::named_load(QString n, QString t, bool silent) {
     try {
         PlTerm cs, s, opts;
-        if (    PlCall("atom_codes", PlTermv(A(t), cs)) &&
-                PlCall("open_chars_stream", PlTermv(cs, s))) {
+        if (
+                PlCall("atom_codes", PlTermv(A(t), cs))
+             && PlCall("open_chars_stream", PlTermv(cs, s))
+         ) {
             PlTail l(opts);
             l.append(PlCompound("stream", PlTermv(s)));
             if (silent)
@@ -340,8 +343,7 @@ bool SwiPrologEngine::in_thread::named_load(QString n, QString t, bool silent) {
             PlCall("close", PlTermv(s));
             return rc;
         }
-    }
-    catch(PlException ex) {
+    } catch (PlException ex) {
         qDebug() << CCP(ex);
     }
     return false;
