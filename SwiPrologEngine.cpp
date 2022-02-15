@@ -43,7 +43,7 @@
 #include <QApplication>
 #include <signal.h>
 #include <QTimer>
-#include <SWI-Stream.h>
+
 
 /** singleton handling - process main engine
  */
